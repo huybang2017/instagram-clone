@@ -29,6 +29,9 @@ const handler = (req: NextRequest) =>
             );
           }
         : undefined,
+    batching: {
+      enabled: true,
+    },
   });
 
 export { handler as GET, handler as POST };

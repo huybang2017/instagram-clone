@@ -5,6 +5,28 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  images: {
+    domains: [
+      "avatars.githubusercontent.com",
+
+      "images.unsplash.com",
+      "cloudinary.com",
+      "res.cloudinary.com",
+
+      "lh3.googleusercontent.com",
+      "platform-lookaside.fbsbx.com",
+      "placehold.co",
+      "via.placeholder.com",
+    ],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+        pathname: "/**",
+      },
+    ],
+  },
+};
 
 export default config;

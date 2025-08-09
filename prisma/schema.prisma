@@ -14,19 +14,174 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
+enum Gender {
+    MALE
+    FEMALE
+}
+
+enum Role {
+    USER
+    ADMIN
+}
+
+enum NotificationType {
+    FOLLOW
+    POST_LIKED
+    COMMENTED
+    MENTIONED
+}
+
 model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
+    id        String   @id @default(cuid())
+    caption   String?  @db.Text
+    location  String?
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String
 
-    @@index([name])
+    comments      Comment[]
+    likes         Like[]
+    images        PostImage[]
+    notifications Notification[]
+
+    @@index([userId])
 }
 
-// Necessary for Next auth
+model PostImage {
+    id           String  @id @default(cuid())
+    imageUrl     String
+    cloudinaryId String? // ID của ảnh trên Cloudinary để có thể xóa ảnh khi cần
+
+    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+    postId String
+
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String
+
+    @@index([postId])
+    @@index([userId])
+}
+
+model Comment {
+    id        String   @id @default(cuid())
+    content   String   @db.Text
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+    postId String
+
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String
+
+    @@index([postId])
+    @@index([userId])
+}
+
+model Like {
+    id        String   @id @default(cuid())
+    createdAt DateTime @default(now())
+
+    post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+    postId String
+
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String
+
+    @@unique([postId, userId])
+    @@index([userId])
+}
+
+model Follow {
+    id        String   @id @default(cuid())
+    createdAt DateTime @default(now())
+    accept    Boolean  @default(false)
+
+    follower   User   @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+    followerId String
+
+    following   User   @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+    followingId String
+
+    @@unique([followerId, followingId])
+    @@index([followerId])
+    @@index([followingId])
+}
+
+model Story {
+    id        String   @id @default(cuid())
+    imageUrl  String
+    text      String?  @db.Text
+    createdAt DateTime @default(now())
+    expiresAt DateTime
+
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String
+
+    @@index([userId])
+}
+
+model Notification {
+    id               String           @id @default(cuid())
+    notificationType NotificationType
+    message          String?
+    isRead           Boolean          @default(false)
+    createdAt        DateTime         @default(now())
+
+    receiver   User   @relation("ReceivedNotifications", fields: [receiverId], references: [id], onDelete: Cascade)
+    receiverId String
+
+    sender   User   @relation("SentNotifications", fields: [senderId], references: [id], onDelete: Cascade)
+    senderId String
+
+    post   Post?   @relation(fields: [postId], references: [id], onDelete: SetNull)
+    postId String?
+
+    @@index([receiverId])
+    @@index([senderId])
+    @@index([postId])
+}
+
+model Chat {
+    id         String   @id @default(cuid())
+    isGroup    Boolean  @default(false)
+    groupName  String?
+    groupImage String?
+    createdAt  DateTime @default(now())
+
+    users    ChatUser[]
+    messages Message[]
+}
+
+model ChatUser {
+    chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+    chatId String
+
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId String
+
+    @@id([chatId, userId])
+    @@index([chatId])
+    @@index([userId])
+}
+
+model Message {
+    id          String   @id @default(cuid())
+    messageText String   @db.Text
+    createdAt   DateTime @default(now())
+
+    chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+    chatId String
+
+    sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+    senderId String
+
+    @@index([chatId])
+    @@index([senderId])
+}
+
 model Account {
     id                       String  @id @default(cuid())
     userId                   String
@@ -34,11 +189,11 @@ model Account {
     provider                 String
     providerAccountId        String
     refresh_token            String? @db.Text
-    access_token             String? // @db.Text
+    access_token             String? @db.Text
     expires_at               Int?
     token_type               String?
     scope                    String?
-    id_token                 String? // @db.Text
+    id_token                 String? @db.Text
     session_state            String?
     user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
     refresh_token_expires_in Int?
@@ -57,12 +212,33 @@ model Session {
 model User {
     id            String    @id @default(cuid())
     name          String?
+    username      String?   @unique
+    bio           String?   @db.Text
     email         String?   @unique
+    gender        Gender?
     emailVerified DateTime?
     image         String?
-    accounts      Account[]
-    sessions      Session[]
-    posts         Post[]
+
+    posts    Post[]
+    comments Comment[]
+    likes    Like[]
+    stories  Story[]
+
+    followers Follow[] @relation("Following")
+    following Follow[] @relation("Follower")
+
+    accounts Account[]
+    sessions Session[]
+
+    sentNotifications     Notification[] @relation("SentNotifications")
+    receivedNotifications Notification[] @relation("ReceivedNotifications")
+
+    chats      ChatUser[]
+    messages   Message[]
+    postImages PostImage[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 }
 
 model VerificationToken {
